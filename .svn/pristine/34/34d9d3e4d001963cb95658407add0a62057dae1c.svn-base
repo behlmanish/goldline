@@ -1,0 +1,549 @@
+ //
+ //  ViewController.swift
+ //  GoldLineSwift
+ //
+ //  Created by Aravind.Kumar on 6/16/16.
+ //  Copyright © 2016 MobileProgramming. All rights reserved.
+ //
+ 
+ import UIKit
+ import Flurry_iOS_SDK
+ import MBProgressHUD
+
+ 
+ class ViewController: UIViewController,UITableViewDelegate, UITableViewDataSource{
+    
+    @IBOutlet weak var tblView: UITableView!
+    @IBOutlet weak var lblTime: UILabel!
+    @IBOutlet weak var lblTimeAmPm: UILabel!
+    @IBOutlet weak var lblUpdatedDate: UILabel!
+    var aryAllData : NSArray?
+    var arrMetals : NSMutableArray = NSMutableArray()
+    var serviceData : NSArray?
+    var info : AnyObject?
+    var dict_MetalDetails : NSMutableDictionary = NSMutableDictionary()
+    var imgCells : NSArray!
+    var titleNames : NSArray?
+    var keychainItem: KeychainItemWrapper!
+    var appdelegate: AppDelegate!
+    var customView: UIView!
+    var cell: GDSpotPriceTblViewCell!
+
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        Flurry.logEvent("Metal Spot Prices")
+        // Do any additional setup after loading the view, typically from a nib
+        MBProgressHUD.showAdded(to: self.view, animated: true)
+
+     
+    }
+    override func viewWillAppear(_ animated: Bool) {
+        
+        DispatchQueue.main.async {
+            print("This is run on the main queue, after the previous code in outer block")
+            
+            self.apiDATA()
+        }
+        
+        
+        self.tblView.reloadData()
+
+        let del:AppDelegate = UIApplication.shared.delegate! as! AppDelegate
+        del.window!.bringSubview(toFront: del.btn_PlayOrPause!)
+        self.navigationController?.setNavigationBarHidden(true, animated: false)
+    }
+    
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        
+        NotificationCenter.default.removeObserver(self, name: Notification.Name(rawValue: "DISMISS_NOTIFICATION"), object: nil);
+        
+        
+    }
+    
+
+    
+    func apiDATA(){
+        
+        self.imgCells = self.getAllImgCell()
+        self.titleNames = self.getAllTitles()
+        
+        appdelegate = (UIApplication.shared.delegate as? AppDelegate)
+        NotificationCenter.default.addObserver(self, selector: #selector(self.RedirectToPerticularView), name: NSNotification.Name(rawValue: "DISMISS_NOTIFICATION"), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(self.dismissWebview), name: NSNotification.Name(rawValue: "DISMISS_NOTIFICATION"), object: nil)
+        Timer.scheduledTimer(timeInterval: 60, target: self, selector: #selector(self.refreshRatesTimer), userInfo: nil, repeats: true)
+        
+        self.getSpotData()
+        
+        self.navigationController?.setNavigationBarHidden(true, animated: false)
+        self.keychainItem = KeychainItemWrapper(identifier: "YourAppLogin", accessGroup: nil)
+        
+        let refreshMe = UIRefreshControl()
+        refreshMe.attributedTitle = NSAttributedString(string: "Pull to refresh")
+        refreshMe.addTarget(self, action: #selector(self.refreshTable(refreshMe:)), for: .valueChanged)
+        
+        tblView.addSubview(refreshMe)
+        tblView.reloadData()
+
+    }
+    
+    func RedirectToPerticularView(notification: Notification) {
+        
+        
+        var dict: [AnyHashable: Any]? = (notification.object as? [AnyHashable: Any])
+        
+        
+        if ((dict?["category"] as! String) == "Metal Spot Prices")
+        {
+            var i: Int = 0
+            var str: String = ""
+            if ((dict?["subcategory"] as! String) == "Gold")
+            {
+                i = 0
+                str = "Gold Price"
+            }
+            else
+                
+                if ((dict?["subcategory"] as! String) == "Silver")
+                {
+                    i = 1
+                    str = "Silver Price"
+                }
+                else
+                    
+                    if ((dict?["subcategory"] as! String) == "Platinum")
+                    {
+                        i = 2
+                        str = "Platinum Price"
+                    }
+                    else
+                        
+                        if ((dict?["subcategory"] as! String) == "Platinum")
+                        {
+                            i = 3
+                            str = "Palladium Price"
+                        }
+                        else{
+                            
+                            print("")
+                            i = 4
+                            
+            }
+            
+            let metalFromArr: GDMetal? = arrMetals[i] as? GDMetal
+            var obj_graph = GDGraphVC()
+            
+            if (self.navigationController?.viewControllers.last is GDGraphVC)
+            {
+                _ = self.navigationController?.popViewController(animated: false)
+            }
+            if (self.CheckForClass(controller: obj_graph))
+            {
+                obj_graph.metal = metalFromArr
+                obj_graph.strDateInHeader = lblUpdatedDate.text!
+                obj_graph.strAMPMInHeader = (lblTimeAmPm.text as! NSString).substring(with: NSRange(location: 0, length: 2))
+                obj_graph.strTimeInHeader = lblTime.text!
+                obj_graph.reloadInputViews()
+                self.navigationController?.pushViewController(obj_graph, animated: true)
+            }
+                
+            else
+                if ((dict?["category"] as! String) == "Financial Markets")
+                {
+                    var obj_graph: GDMarketVC?
+                    if self.CheckForClass(controller: obj_graph!)
+                    {
+                        obj_graph = self.storyboard?.instantiateViewController(withIdentifier: "MarketVC") as! GDMarketVC?
+                    }
+                    if (self.navigationController?.viewControllers.last is GDMarketVC)
+                    {
+                        self.navigationController?.popViewController(animated: false)
+                    }
+                    self.navigationController?.pushViewController(obj_graph!, animated: true)
+                }
+                else
+                    if ((dict?["category"] as! String) == "News & Videos")
+                    {
+                        var controller: UIViewController!
+                        
+                        if((dict?["subcategory"] as! String) == "Recent Industry News")
+                        {
+                            if((dict?["nid"] as! String) is NSNull) || ((dict?["nid"] as! String) == "")
+                            {
+                                let controller: GDIndustryNewsVC! = (self.storyboard?.instantiateViewController(withIdentifier: "GDIndustryNewsVC")) as! GDIndustryNewsVC!
+                                if (self.navigationController?.viewControllers.last? .isKind(of: controller.superclass!))! //aravind
+                                {
+                                    self.navigationController?.popViewController(animated: false)
+                                }
+                                self.navigationController?.pushViewController(controller, animated: false)
+                            }
+                            else
+                            {
+                                let item = [AnyHashable: Any]()
+                                let controller: GDIndustryNewsDetailVC = self.storyboard?.instantiateViewController(withIdentifier: "GDIndustryNewsDetailVC") as! GDIndustryNewsDetailVC
+                                controller.str_Guid = "\(dict?["nid"] as! String)"
+                                controller.item = item as NSDictionary!
+                                controller.str_title = "Recent Industry News"
+                                if ((self.navigationController?.viewControllers.last)? .isKind(of: controller.superclass!))! //aravind
+                                {
+                                    self.navigationController?.popViewController(animated: false)
+                                    
+                                }
+                                self.navigationController?.pushViewController(controller, animated: true)
+                            }
+                            return
+                        }
+                        else
+                            if ((dict?["subcategory"] as! String) == "Market Analyst Predictions")
+                            {
+                                controller = self.storyboard?.instantiateViewController(withIdentifier: "GDPreviousMetalsVC")
+                            }
+                            else
+                                if((dict?["subcategory"] as! String) == "Digital Brochure")
+                                {
+                                    controller = self.storyboard?.instantiateViewController(withIdentifier: "BrochureVC")
+                                }
+                                else
+                                    if ((dict?["subcategory"] as! String) == "Press Center")
+                                    {
+                                        if (((dict?["nid"] as! String) is NSNull) || (dict?["nid"] as! String) == "")
+                                        {
+                                            let controller: GDPressReleaseVC = self.storyboard?.instantiateViewController(withIdentifier: "GDPressReleaseVC") as! GDPressReleaseVC
+                                            if ((self.navigationController?.viewControllers.last)?.isKind(of: controller.superclass!))!
+                                            {
+                                                self.navigationController?.popViewController(animated: false)
+                                            }
+                                            self.navigationController?.pushViewController(controller, animated: false)
+                                            
+                                        }
+                                        else
+                                            
+                                        {
+                                            var controller: GDPressReleaseDetailVC = self.storyboard?.instantiateViewController(withIdentifier: "GDPressReleaseDetailVC") as! GDPressReleaseDetailVC
+                                            controller.str_Guid = "\(dict!["nid"] as? String)"
+                                            
+                                            if ((self.navigationController?.viewControllers.last)?.isKind(of: controller.superclass!))!
+                                            {
+                                                self.navigationController?.popViewController(animated: false)
+                                            }
+                                            self.navigationController?.pushViewController(controller, animated: true)
+                                            
+                                        }
+                                        return
+                        }
+                        
+                        if (self.navigationController?.viewControllers.last?.isKind(of: controller.superclass!))!
+                        {
+                            self.navigationController?.popViewController(animated: false)
+                        }
+                        self.navigationController?.pushViewController(controller, animated: true)
+                    }
+                    else
+                        if ((dict?["category"] as! String) == "Coin Catalog")
+                        {
+                            var i: Int
+                            if ((dict?["subcategory"] as! String) == "Exclusive")
+                            {
+                                i = 0
+                            }else
+                                if ((dict?["subcategory"] as! String) == "Gold")
+                                {
+                                    i = 1
+                            }
+                            if ((dict?["subcategory"] as! String) == "Silver")
+                            {
+                                i = 2
+                            }
+                            if ((dict?["subcategory"] as! String) == "Platinum")
+                            {
+                                i = 3
+                            }
+                            if ((dict?["subcategory"] as! String) == "Palladium")
+                            {
+                                i = 4
+                            }
+                            if ((dict?["subcategory"] as! String) == "IRA")
+                            {
+                                i = 5
+                            }
+                            
+                            i = 6
+            }
+            
+        }
+        
+        
+    }
+    
+    
+    func CheckForClass(controller: UIViewController) -> Bool
+    {
+        if ((self.navigationController?.viewControllers) != nil)
+        {
+            for VC: UIViewController in (self.navigationController?.viewControllers)!
+            {
+                if (VC .isKind(of: controller.superclass!))//aravind
+                {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+    
+    
+    
+    func dismissWebview(sender: NSNotification) {
+        let storage = HTTPCookieStorage.shared
+        for cookie: HTTPCookie in storage.cookies!
+        {
+            storage.deleteCookie(cookie)
+        }
+        customView.removeFromSuperview()
+    }
+    
+    
+    func getAllImgCell() -> NSArray {
+        
+        return ["1_coin.png","silver_coin.png","platinum_coin.png","palladium.png"]
+    }
+    
+    func getAllTitles() -> NSArray {
+        return ["Gold","Silver","Platinum","Palladium"]
+    }
+    
+    func refreshRatesTimer(_ t: Timer) {
+        print("refreshRatesTimer() - timer called...")
+        //refreshing the json api for according to NSTimer
+        self.getSpotData()
+    }
+    
+    func getSpotData() {
+        WXCloudConnection.getLink("https://www.goldline.com/includes/spots_json.php", target: self, selector: #selector(self.serviceComplete), userData: nil)
+
+    }
+    
+    
+    func refreshTable(refreshMe: UIRefreshControl)
+    {
+       WXCloudConnection.getLink("https://www.goldline.com/includes/spots_json.php", target: self, selector: #selector(self.serviceComplete), userData: nil)
+     
+
+        refreshMe.endRefreshing()
+    }
+    
+    
+
+    func serviceComplete(c: WXCloudConnection)
+    {
+        let json:String = c.dataAsUTF8String()
+        self.serviceData = json.jsonValue() as! NSArray?
+        if serviceData != nil
+        {
+            info = self.serviceData?[0] as AnyObject?
+            let strLastUpdateDate:String = (info?["last_update"] as! String)
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "MMMM dd, yyyy - HH:mm:ss"
+            let dateFormString = dateFormatter.date(from: strLastUpdateDate.replacingOccurrences(of: "PST", with: ""))
+            print("print date \(dateFormString)")
+            let sourceDate: Date? = dateFormString
+            //Json Data in PST time formate.
+            let sourceTimeZone = NSTimeZone.init(abbreviation: "PST")
+            //Convert PST time formate into EST time formate
+            let destinationTimeZone = NSTimeZone.init(abbreviation: "EST")
+            let sourceGMTOffset: Double = Double((sourceTimeZone?.secondsFromGMT(for: sourceDate!))!)
+            let destinationGMTOffset: Double = Double((destinationTimeZone?.secondsFromGMT(for: sourceDate!))!)
+            let interval: TimeInterval = destinationGMTOffset - sourceGMTOffset
+            let destinationDate = Date(timeInterval: interval, since: sourceDate!)
+            dateFormatter.dateFormat = "EEEE, MMMM dd, yyyy"
+            let formatterLocal = NSLocale.init(localeIdentifier: "en_US_POSIX")
+            dateFormatter.locale = formatterLocal as Locale!
+            lblUpdatedDate.text = "\(dateFormatter.string(from: destinationDate))"
+            dateFormatter.dateFormat = "hh:mm a"
+            
+            
+            let arr_AmPm :NSArray = [Any](arrayLiteral: dateFormatter.string(from: destinationDate).components(separatedBy: " ")) as NSArray
+       // let arr_AmPm: NSArray = (arrayliteral: dateFormatter.string(from: destinationDate).components(separatedBy: " ")) as NSArray
+            dateFormatter.dateFormat = "hh:mm"
+            let strTime: String = dateFormatter.string(from: destinationDate)
+            lblTime.text = strTime
+            var timeGet :NSArray  = arr_AmPm.object(at: 0) as! NSArray
+            var abc = timeGet.object(at: 1)
+            lblTimeAmPm.text = "\(abc) (EST)"
+
+          //lblTimeAmPm.text = abc as! String
+            lblTimeAmPm.text = lblTimeAmPm.text?.uppercased()
+        }
+        
+        arrMetals.removeAllObjects()
+        
+        //Get Gold data
+        let metalGold: GDMetal = GDMetal()
+        metalGold.strMetalName = "Gold"
+        metalGold.strMetalValue = info?.value(forKey: "Goldvalue") as? String
+        metalGold.strMetalChange = info?.value(forKey: "Goldchange") as? String
+        metalGold.strMetalPercentChange = info?.value(forKey: "Goldpercentchange") as? String
+        metalGold.urlMetalStatusImage  =  URL(string: (info?.value(forKey: "Goldstatusimg") as? String)!)
+        
+        //get Silver Data
+        let metalSilver: GDMetal = GDMetal()
+        metalSilver.strMetalName = "Silver"
+        metalSilver.strMetalValue = info?.value(forKey: "Silvervalue") as? String
+        metalSilver.strMetalChange = info?.value(forKey: "Silverchange") as? String
+        metalSilver.strMetalPercentChange = info?.value(forKey: "Silverpercentchange") as? String
+        metalSilver.urlMetalStatusImage  =  URL(string: (info?.value(forKey: "Silverstatusimg") as? String)!)
+        
+        //get platinum data
+        let metalPlatinum: GDMetal = GDMetal()
+        metalPlatinum.strMetalName = "Platinum"
+        metalPlatinum.strMetalValue = info?.value(forKey: "Platinumvalue") as? String
+        metalPlatinum.strMetalChange = info?.value(forKey: "Platinumchange") as? String
+        metalPlatinum.strMetalPercentChange = info?.value(forKey: "Platinumpercentchange") as? String
+        metalPlatinum.urlMetalStatusImage  =  URL(string: (info?.value(forKey: "Platinumstatusimg") as? String)!)
+        
+        // get palladium data...
+        let metalPalladium:GDMetal = GDMetal()
+        metalPalladium.strMetalName = "Palladium"
+        metalPalladium.strMetalValue = info?.value(forKey: "Palladiumvalue") as? String
+        metalPalladium.strMetalChange = info?.value(forKey: "Palladiumchange") as? String
+        metalPalladium.strMetalPercentChange = info?.value(forKey: "Palladiumpercentchange") as? String
+        metalPalladium.urlMetalStatusImage  =  URL(string: (info?.value(forKey: "Palladiumstatusimg") as? String)!)
+        
+        if (self.serviceData?.isKind(of: NSArray.self))! {
+            dict_MetalDetails.setObject(info?.value(forKey: "Goldvalue") as! String, forKey: "Goldvalue" as NSCopying)
+            dict_MetalDetails.setObject(info?.value(forKey: "Silvervalue") as! String, forKey: "Silvervalue" as NSCopying)
+            dict_MetalDetails.setObject(info?.value(forKey: "Platinumvalue") as! String, forKey: "Platinumvalue" as NSCopying)
+            dict_MetalDetails.setObject(info?.value(forKey: "Palladiumvalue") as! String, forKey: "Palladiumvalue" as NSCopying)
+        }
+
+        UserDefaults.standard.set(dict_MetalDetails, forKey: "MetalDetails")
+        UserDefaults.standard.synchronize()
+        arrMetals.insert(metalGold, at: 0)
+        arrMetals.insert(metalSilver, at: 1)
+        arrMetals.insert(metalPlatinum, at: 2)
+        arrMetals.insert(metalPalladium, at: 3)
+
+        self.tblView.reloadData()
+        MBProgressHUD.hideAllHUDs(for: self.view, animated: true)
+
+    }
+    
+    
+    //#pragma mark- Table View Delagate & Data Source Methods
+    
+    func numberOfSections(in tableView: UITableView) -> Int // Default is 1 if not implemented
+    {
+        return 1
+    }
+    
+    func tableView(_ tableView:UITableView, numberOfRowsInSection section:Int) -> Int{
+        if self.arrMetals.count > 0
+        {
+            //print(self.aryAllData!.count)
+            return self.arrMetals.count
+        }
+        return 0
+    }
+    
+    
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return 85
+    }
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        
+         cell = tableView.dequeueReusableCell(withIdentifier: "GDSpotPriceTblViewCell") as! GDSpotPriceTblViewCell
+//        cell.selectionStyle = UITableViewCellSelectionStyle.none
+
+        if cell == nil {
+            cell = GDSpotPriceTblViewCell(style: UITableViewCellStyle.value1, reuseIdentifier: "GDSpotPriceTblViewCell")
+        }
+        
+        let metal: GDMetal = arrMetals[indexPath.row] as! GDMetal
+        
+        cell.lblPriceInDollars.text = metal.strMetalValue
+        
+        cell.lblChangeInDollars.text = metal.strMetalChange
+        
+        cell.lblChangeWeight.text = metal.strMetalPercentChange
+        
+        cell.lblMetalName.text = self.titleNames?.object(at: indexPath.row) as? String
+        
+        cell.imgViewMetal.image = UIImage(named: (self.imgCells?.object(at: indexPath.row))! as! String)
+        
+        if (metal.strMetalChange?.hasPrefix("+"))!
+        {
+            cell.lblChangeInDollars.textColor = UIColor(red:CGFloat(16 / 255.0), green: CGFloat(124 / 255.0), blue: CGFloat(19 / 255.0), alpha: CGFloat(1.0))
+            cell.lblChangeWeight.textColor = UIColor(red:CGFloat(16 / 255.0), green: CGFloat(124 / 255.0), blue: CGFloat(19 / 255.0), alpha: CGFloat(1.0))
+        }
+        
+        if (metal.strMetalChange?.hasPrefix("-"))!
+        {
+            cell.lblChangeInDollars.textColor = UIColor(red: CGFloat(186 / 255.0), green: CGFloat(124 / 255.0), blue: CGFloat(19 / 255.0), alpha: CGFloat(1.0))
+            cell.lblChangeInDollars.textColor = UIColor(red: CGFloat(186 / 255.0), green: CGFloat(0 / 255.0), blue: CGFloat(0), alpha: CGFloat(1.0))
+            cell.lblChangeWeight.textColor = UIColor(red: CGFloat(186 / 255.0), green: CGFloat(0 / 255.0), blue: CGFloat(0), alpha: CGFloat(1.0))
+        }
+        
+        return cell
+    }
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        
+        var cell: GDSpotPriceTblViewCell! = tableView.dequeueReusableCell(withIdentifier: "GDSpotPriceTblViewCell") as! GDSpotPriceTblViewCell
+        cell.selectionStyle = UITableViewCellSelectionStyle.gray
+        
+        let metalFromArr:GDMetal =  self.arrMetals[indexPath.row] as! GDMetal
+        let c: GDGraphVC = self.storyboard?.instantiateViewController(withIdentifier: "GraphDetailVC") as! GDGraphVC
+        c.metal = metalFromArr
+        c.strDateInHeader = lblUpdatedDate.text!
+        c.strAMPMInHeader = (lblTimeAmPm.text as! NSString).substring(with: NSRange(location: 0, length: 2))
+        c.strTimeInHeader = lblTime.text!
+        c.reloadInputViews()
+        
+        switch indexPath.row {
+        case 0:
+            c.str_header = "Gold Price"
+            
+        case 1:
+            c.str_header = "Silver Price"
+            
+        case 2:
+            c.str_header = "Platinum Price"
+            
+        case 3:
+            c.str_header = "Palladium Price"
+        default:
+            break
+        }
+        self.navigationController?.pushViewController(c, animated: true)
+        
+        
+    }
+    
+    
+    @IBAction func callNowFunction(_ sender: Any) {
+        let device = UIDevice.current
+        if (device.model == "iPhone") {
+            let stringURL: String = "telprompt://8003185505"
+            UIApplication.shared.openURL(URL(string: stringURL)!)
+        } else {
+            UIAlertView(title: "", message: "Device not supporting calling functionality", delegate: nil, cancelButtonTitle: "", otherButtonTitles: "Ok").show()
+        }
+    }
+    
+    
+    func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
+        
+        var cell: GDSpotPriceTblViewCell! = tableView.dequeueReusableCell(withIdentifier: "GDSpotPriceTblViewCell") as! GDSpotPriceTblViewCell
+        cell.selectionStyle = UITableViewCellSelectionStyle.none
+        
+    }
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        // Dispose of any resources that can be recreated.
+    }
+    
+    
+ }
+ 

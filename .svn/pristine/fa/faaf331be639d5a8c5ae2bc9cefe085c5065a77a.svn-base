@@ -1,0 +1,9 @@
+target 'GoldLineSwift' do
+
+pod 'AFNetworking'
+pod 'MWFeedParser'
+pod 'MBProgressHUD'
+use_frameworks!
+pod 'Fabric'
+pod 'Crashlytics'
+end

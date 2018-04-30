@@ -1,0 +1,101 @@
+//
+//  GDSocialWebPageVC.swift
+//  GoldLineSwift
+//
+//  Created by Aravind.Kumar on 6/16/16.
+//  Copyright © 2016 MobileProgramming. All rights reserved.
+//
+
+import UIKit
+import Flurry_iOS_SDK
+
+class GDSocialWebPageVC: UIViewController,UIWebViewDelegate {
+    
+  
+    @IBOutlet weak var browser: UIWebView!
+    var home: URL!
+    var strLink = ""
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        Flurry.logEvent("Social")
+
+        self.navigationController?.setNavigationBarHidden(true, animated: true)
+        self.home = URL(string: strLink.addingPercentEscapes(using: String.Encoding.ascii)!)!
+    }
+    
+    
+    
+    override func viewWillAppear(_ animated: Bool) {
+        
+        self.go(to: home)
+        
+        self.navigationController?.setNavigationBarHidden(true, animated: false)
+    }
+    
+    func clear()
+    {
+        browser.loadHTMLString("<html></html>", baseURL: nil)
+    }
+    
+    func go(to url:URL)
+    {
+        let req = URLRequest(url: url)
+        browser.loadRequest(req)
+        MBProgressHUD.showAdded(to: self.view, animated: true)
+        
+    }
+    
+     func webView(_ webView: UIWebView, shouldStartLoadWith request: URLRequest, navigationType: UIWebViewNavigationType) -> Bool {
+        if navigationType == .linkClicked {
+            print("\(request)")
+        }
+        return true
+    }
+    
+    
+    public func webView(_ webView: UIWebView, didFailLoadWithError error: Error)
+    {
+        MBProgressHUD.showAdded(to: self.view, animated: true)
+    }
+    
+    @IBAction func goBack(_ sender: Any)
+    {
+        MBProgressHUD.showAdded(to: self.view, animated: true)
+        browser.goBack()
+    }
+    
+    @IBAction func goForward(_ sender: Any)
+    {
+        MBProgressHUD.showAdded(to: self.view, animated: true)
+        browser.goForward()
+    }
+    
+  
+    deinit
+    {
+        browser.delegate = nil
+    }
+    
+    //It will be in  Autorotate when data load on webView.
+    
+//    override func shouldAutorotate(to interfaceOrientation: UIInterfaceOrientation) -> Bool {
+//        return true
+//    }
+    
+     public func webViewDidFinishLoad(_ webView: UIWebView)
+    {
+       // MBProgressHUD.showAdded(to: self.view, animated: true)
+         MBProgressHUD.hideAllHUDs(for: self.view, animated:true)
+    }
+    
+ 
+    @IBAction func btnBackPressed(_ sender: Any) {
+        self.navigationController!.popViewController(animated: true)
+    }
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        
+    }
+    
+}

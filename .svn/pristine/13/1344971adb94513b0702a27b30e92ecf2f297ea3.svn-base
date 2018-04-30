@@ -1,0 +1,280 @@
+//
+//  AppDelegate.swift
+//  GoldLineSwift
+//
+//  Created by Aravind.Kumar on 6/16/16.
+//  Copyright © 2016 MobileProgramming. All rights reserved.
+//
+
+import UIKit
+import UserNotifications
+import Fabric
+import Crashlytics
+import Flurry_iOS_SDK
+
+@UIApplicationMain
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate
+{
+    var str_deviceToken: String!
+    var alertView: UIAlertView!
+    var dict_userInfo = [AnyHashable: Any]()
+    var window: UIWindow?
+    var isAudioPlaying: Bool!
+    var btn_PlayOrPause: UIButton!
+    var isLandscape = false
+    var drawerViewController: JVFloatingDrawerViewController!
+    var drawerAnimater: JVFloatingDrawerSpringAnimator!
+    var keychainItem: KeychainItemWrapper!
+    
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?) -> Bool {
+        
+        Thread.sleep(forTimeInterval: 0.3)
+
+        //Crashlytics implemetation
+        Fabric.with([Crashlytics.self])
+//        [Fabric with:@[[Crashlytics class]]];
+        
+        btn_PlayOrPause = UIButton(type: UIButtonType.custom)
+        btn_PlayOrPause.frame = CGRect(x: CGFloat(292), y: CGFloat(25),width: CGFloat(22), height: CGFloat(25))
+        btn_PlayOrPause.setImage(UIImage(named: "sound")!, for: .normal)
+        btn_PlayOrPause.addTarget(self, action: #selector(getter: self.btn_PlayOrPause), for: .touchUpInside)
+        self.window!.addSubview(btn_PlayOrPause)
+        self.window!.bringSubview(toFront: btn_PlayOrPause)
+        btn_PlayOrPause.isHidden = true
+        let defaults = UserDefaults.standard
+        defaults.set(-1, forKey: "SelectedRow")
+        self.alertView = UIAlertView(title: "Notification Alert!", message: "", delegate: nil, cancelButtonTitle: "OK", otherButtonTitles: "")
+        let uniqueIdentifier:String = (UIDevice.current.identifierForVendor?.uuidString)!
+        keychainItem = KeychainItemWrapper.init(identifier: "YourAppLogin", accessGroup: nil)
+        let getUdid = keychainItem.object(forKey: kSecValueData) as? String
+        
+        if getUdid == "" {
+            keychainItem.setObject(uniqueIdentifier, forKey: kSecValueData)
+            print("Unique identifier \(uniqueIdentifier)")
+        }
+        
+//        var token = deviceToken.description.trimmingCharacters(in: CharacterSet(charactersIn: "<>"))
+//        token = token.replacingOccurrences(of: " ", with: "")
+        
+        //for Simulator Check
+        UserDefaults.standard.set(uniqueIdentifier, forKey: "deviceToken")
+        UserDefaults.standard.synchronize()
+        self.str_deviceToken = uniqueIdentifier
+        let appVersionString = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
+        let srt_saveToken = "https://www.goldline.com/iphone/api/services/index.php?action=deviceToken";
+        let strupload =  "device_token=\(uniqueIdentifier)&udid=\(keychainItem.object(forKey: kSecValueData) as? String)&debug=0&version=\(appVersionString as? String)"
+        let strpostlength = String(strupload.characters.count)
+        var urlrequest = URLRequest(url: URL(string: srt_saveToken)!)
+        urlrequest.httpMethod = "POST"
+        urlrequest.setValue(strpostlength, forHTTPHeaderField: "Content-length")
+        urlrequest.httpBody = strupload.data(using: .utf8)
+        NSURLConnection.sendAsynchronousRequest(urlrequest, queue: .main) { (response, data, error) in
+            if error != nil {
+                print("Device Notitfication Register Error: \(error?.localizedDescription)")
+                return
+            }
+            do {
+                let res: [AnyHashable: Any] = try JSONSerialization.jsonObject(with: data!, options: .allowFragments) as! [AnyHashable: Any]
+                let uid = res["uid"] as? String
+               UserDefaults.standard.set(uid, forKey: "UserID")
+                
+                UserDefaults.standard.synchronize()
+            let userIUd = UserDefaults.standard.value(forKey: "UserID") as! String
+                print(userIUd)
+                
+            } catch {
+                print("Catch Error")
+            }
+        }
+        // End Simulator Check
+
+        registerForRemoteNotification()
+        application.registerForRemoteNotifications()
+        self.configureWindow()
+        Flurry.startSession("2N2Y5H2PS325FK4FH2W5", with: FlurrySessionBuilder
+            .init()
+            .withCrashReporting(true)
+            .withLogLevel(FlurryLogLevelAll))
+        return true
+    }
+    
+    func configureWindow() {
+        self.window! = UIWindow(frame: UIScreen.main.bounds)
+        self.window!.makeKeyAndVisible()
+        self.drawerViewController = JVFloatingDrawerViewController()
+        self.window!.rootViewController =  self.drawerViewController
+        let storyBoard = UIStoryboard(name: "Main", bundle: nil)
+        let leftViewController:LeftSlideVC = storyBoard.instantiateViewController(withIdentifier: "LeftSlideVC") as! LeftSlideVC
+        let centerViewController:ViewController = storyBoard.instantiateViewController(withIdentifier: "SpotPrices") as! ViewController
+        let frontViewNavigation = UINavigationController(rootViewController: centerViewController)
+        self.drawerViewController.leftViewController = leftViewController
+        self.drawerViewController.centerViewController = frontViewNavigation
+        self.drawerAnimater = JVFloatingDrawerSpringAnimator()
+        self.drawerViewController.animator = drawerAnimater
+    }
+    
+    func leftDrawerViewController() -> UIViewController{
+        let storyBoard = UIStoryboard(name: "Main", bundle: nil)
+        let leftViewController = storyBoard.instantiateViewController(withIdentifier: "LeftSlideVC")
+        return leftViewController
+    }
+    
+    func drawerViewController1() -> JVFloatingDrawerViewController {
+        if (drawerViewController != nil){
+            drawerViewController = JVFloatingDrawerViewController()
+        }
+        return drawerViewController
+    }
+    
+    //MARK:- Push Notification
+    func registerForRemoteNotification()
+    {
+        if #available(iOS 10.0,*)
+        {
+            let center = UNUserNotificationCenter.current()
+            center.delegate = self
+            center.requestAuthorization(options: [.sound,.alert,.badge]) {(granted, error) in
+                if error == nil
+                {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
+        } else {
+            UIApplication.shared.registerUserNotificationSettings(UIUserNotificationSettings(types: [.sound, .alert, .badge], categories: nil))
+            UIApplication.shared.registerForRemoteNotifications()
+        }
+    }
+    
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken  deviceToken: Data)
+    {
+//        var token = ""
+//        for i in 0..<deviceToken.count
+//        {
+//            token = token + String(format: "%02.2hhx", arguments: [deviceToken[i]])
+//        }
+//        print(token)
+//        token = token.replacingOccurrences(of: " ", with: "")
+//        UserDefaults.standard.set(token, forKey: "deviceToken")
+//        UserDefaults.standard.synchronize()
+//        print("Token -- \(token)")
+//        self.sendDeviceToken = token
+//        self.sendDeviceToken(token: token)
+        
+        var token = deviceToken.description.trimmingCharacters(in: CharacterSet(charactersIn: "<>"))
+        token = token.replacingOccurrences(of: " ", with: "")
+        UserDefaults.standard.set(token, forKey: "deviceToken")
+        UserDefaults.standard.synchronize()
+        let uniqueIdentifier:String = (UIDevice.current.identifierForVendor?.uuidString)!
+         UserDefaults.standard.set(uniqueIdentifier, forKey: "deviceToken")
+        UserDefaults.standard.synchronize()
+        self.str_deviceToken = uniqueIdentifier
+        // self.str_deviceToken = token
+        
+        let appVersionString = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
+        let srt_saveToken = "https://www.goldline.com/iphone/api/services/index.php?action=deviceToken";
+       // var udid = keychainItem.object(forKey: kSecValueData) as! String
+        let strupload =  "device_token=\(self.str_deviceToken)&udid=\(keychainItem.object(forKey: kSecValueData) as! String)&debug=0&version=\(appVersionString as! String)"
+        let strpostlength = String(strupload.characters.count)
+        var urlrequest = URLRequest(url: URL(string: srt_saveToken)!)
+        urlrequest.httpMethod = "POST"
+        urlrequest.setValue(strpostlength, forHTTPHeaderField: "Content-length")
+        urlrequest.httpBody = strupload.data(using: .utf8)
+        NSURLConnection.sendAsynchronousRequest(urlrequest, queue: .main) { (response, data, error) in
+            if error != nil {
+                print("Device Notitfication Register Error: \(error?.localizedDescription)")
+                return
+            }
+            do {
+                let res: [AnyHashable: Any] = try JSONSerialization.jsonObject(with: data!, options: .allowFragments) as! [AnyHashable: Any]
+                
+                print(res)
+                
+                var uId = res["uid"] as? String
+               var userID = UserDefaults.standard.set(uId, forKey: "UserID")
+                UserDefaults.standard.synchronize()
+                let userIUd = UserDefaults.standard.value(forKey: "UserID") as! String
+             print(userIUd)
+            } catch {
+                print("Catch Error")
+            }
+        }
+    }
+    
+    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any])
+    {
+        print("userInfo is \(userInfo)")
+        if (((userInfo["aps"] as AnyObject)["type"] as! String) == "update_badge")
+        {
+            return
+        }
+        if self.alertView == nil
+        {
+            self.alertView = UIAlertView(title: "Notification Alert!", message: "", delegate: nil, cancelButtonTitle: "OK", otherButtonTitles: "")
+            
+        }
+        self.dict_userInfo = (userInfo["aps"] as? [AnyHashable: Any])!
+        self.alertView.title = "Notification Alert!"
+        self.alertView.message = (self.dict_userInfo["alert"] as! String)
+        self.alertView.show()
+    }
+    
+    @available(iOS 10.0, *)
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        print("User Info = ",notification.request.content.userInfo)
+        completionHandler([.alert, .badge, .sound])
+    }
+    
+    @available(iOS 10.0, *)
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        print("User Info = ",response.notification.request.content.userInfo)
+        completionHandler()
+    }
+    
+    func alertView(_ alertView: UIAlertView, clickedButtonat buttonIndex: Int)
+    {
+        if ((self.dict_userInfo["type"] as! String) == "custom") {
+        } else{ }
+    }
+    
+    func sendDeviceToken(token: String)
+    {
+        let srt_saveToken =  "https://www.goldline.com/iphone/api/services/index.php?action=deviceToken"
+        let strupload =  String(format: "device_token=%@", token)
+        
+        WebServiceManger.requestUrl(srt_saveToken, withPostStr: strupload, completion: {(result, response , error) -> (Void) in
+            if (error == nil) {
+                print("Device ID\(result)")
+                let uid = result?.object(forKey: "uid")
+                print("userId\(uid)")
+                UserDefaults.standard.set(uid, forKey: "UserID")
+                UserDefaults.standard.synchronize()
+            }
+        })
+    }
+    
+    //MARK: - UIApplication
+    
+    func applicationWillResignActive(_ application: UIApplication) {
+    }
+    
+    func applicationDidEnterBackground(_ application: UIApplication) {
+    }
+    
+    func applicationWillEnterForeground(_ application: UIApplication) {
+    }
+    
+    func applicationDidBecomeActive(_ application: UIApplication) {
+    }
+    
+    func applicationWillTerminate(_ application: UIApplication) {
+    }
+    
+    class func globalDelegate() -> AppDelegate {
+        return (UIApplication.shared.delegate! as! AppDelegate)
+    }
+    
+    func toggleLeftDrawer(_ sender: Any, animated: Bool) {
+        self.drawerViewController.toggleDrawer(with: JVFloatingDrawerSide.left, animated: animated, completion: nil)
+    }
+}
+

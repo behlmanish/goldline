@@ -1,0 +1,56 @@
+PODS:
+  - AFNetworking (3.1.0):
+    - AFNetworking/NSURLSession (= 3.1.0)
+    - AFNetworking/Reachability (= 3.1.0)
+    - AFNetworking/Security (= 3.1.0)
+    - AFNetworking/Serialization (= 3.1.0)
+    - AFNetworking/UIKit (= 3.1.0)
+  - AFNetworking/NSURLSession (3.1.0):
+    - AFNetworking/Reachability
+    - AFNetworking/Security
+    - AFNetworking/Serialization
+  - AFNetworking/Reachability (3.1.0)
+  - AFNetworking/Security (3.1.0)
+  - AFNetworking/Serialization (3.1.0)
+  - AFNetworking/UIKit (3.1.0):
+    - AFNetworking/NSURLSession
+  - Crashlytics (3.8.4):
+    - Fabric (~> 1.6.3)
+  - Fabric (1.6.11)
+  - Flurry-iOS-SDK/FlurryAds (8.1.0):
+    - Flurry-iOS-SDK/FlurrySDK
+  - Flurry-iOS-SDK/FlurrySDK (8.1.0)
+  - Kingfisher (4.5.0)
+  - MBProgressHUD (1.0.0)
+  - MWFeedParser (1.0.1):
+    - MWFeedParser/FeedParser (= 1.0.1)
+    - MWFeedParser/NSDate+InternetDateTime (= 1.0.1)
+    - MWFeedParser/NSString+HTML (= 1.0.1)
+  - MWFeedParser/FeedParser (1.0.1):
+    - MWFeedParser/NSDate+InternetDateTime
+    - MWFeedParser/NSString+HTML
+  - MWFeedParser/NSDate+InternetDateTime (1.0.1)
+  - MWFeedParser/NSString+HTML (1.0.1)
+
+DEPENDENCIES:
+  - AFNetworking
+  - Crashlytics
+  - Fabric
+  - Flurry-iOS-SDK/FlurryAds
+  - Flurry-iOS-SDK/FlurrySDK
+  - Kingfisher (~> 4.0)
+  - MBProgressHUD
+  - MWFeedParser
+
+SPEC CHECKSUMS:
+  AFNetworking: 5e0e199f73d8626b11e79750991f5d173d1f8b67
+  Crashlytics: 79e236942ca1e7fc641df1feb9a275360a78ab6a
+  Fabric: 5911403591946b8228ab1c51d98f1d7137e863c6
+  Flurry-iOS-SDK: 51065be4436f3e21fc8d3d7bb0b7d6869df6333d
+  Kingfisher: 26ae0473102b77b575da51960c932431e3745407
+  MBProgressHUD: 4890f671c94e8a0f3cf959aa731e9de2f036d71a
+  MWFeedParser: 2cf646014c1baf6ad1b08c480b40a08180079247
+
+PODFILE CHECKSUM: 63e21c1bc1038dc33b18bd0370a0e452a2bc0d4b
+
+COCOAPODS: 1.2.1

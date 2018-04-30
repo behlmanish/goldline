@@ -1,0 +1,174 @@
+//
+//  GDIndustryNewsVC.swift
+//  GoldLineSwift
+//
+//  Created by Gaurav Singh Rawat on 6/16/16.
+//  Copyright © 2016 MobileProgramming. All rights reserved.
+//
+
+import UIKit
+
+class GDIndustryNewsVC: UIViewController, UITableViewDelegate, UITableViewDataSource {
+    
+    @IBOutlet weak var listView: UITableView!
+    @IBOutlet weak var headingLabel: UILabel!
+    
+    var data: NSMutableData?
+    var items: NSMutableArray?
+    var arr_PubDate: NSMutableArray?
+    var arr_Summary: NSMutableArray?
+    var arr_Content: NSMutableArray?
+    var arr_Guide: NSMutableArray?
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        self.title = "Recent Industry News";
+        arr_Summary = NSMutableArray()
+        arr_PubDate = NSMutableArray()
+        arr_Content = NSMutableArray()
+        arr_Guide = NSMutableArray()
+        data = NSMutableData(capacity: 1024)
+        MBProgressHUD.showAdded(to: self.view, animated: true)
+        let delayInSeconds = 0.0
+        let popTime = DispatchTime.now() + Double(Int64(delayInSeconds * Double(NSEC_PER_SEC)))
+        
+        DispatchQueue.main.asyncAfter(deadline: popTime) {
+            //           self.parseAndLoadData()
+            self.loadURL("https://www.goldline.com/iphone/news.xml")
+        }
+    }
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        headingLabel.font = UIFont(name: "OpenSans-SemiBold", size: 18)
+        
+        //        self.screenName = IndustryNews;
+        //        [self.navigationController setNavigationBarHidden:YES animated:NO];
+        //        appDelegate = (GDAppDelegate*)[UIApplication sharedApplication].delegate;
+        //        appDelegate.className = @"Recent Industry News";
+    }
+    
+    //MARK: - Local Methods
+    func parseAndLoadData()
+    {
+        let xmlData = NSData(contentsOf: URL(string: "https://www.goldline.com/iphone/news.xml")!)
+        do {
+            let tbxml  = try TBXML(xmlData: xmlData as! Data, error: {
+                print("Xml Error")
+                }())
+            let root = tbxml.rootXMLElement
+            if (root != nil) {
+                var elem_Node = TBXML.childElementNamed("item", parentElement: root)
+                while elem_Node != nil {
+                    let elem_Pubdate = TBXML.childElementNamed("pubDate", parentElement: elem_Node)
+                    let dateFormatter = DateFormatter()
+                    DateFormatter.defaultFormatterBehavior = .default
+                    dateFormatter.dateFormat = "yyyy-MM-dd"
+                    let dateFromString = dateFormatter.date(from: TBXML.text(for: elem_Pubdate))
+                    dateFormatter.dateFormat = "MMM dd, yyyy"
+                    arr_PubDate?.add(dateFormatter.string(from: dateFromString!))
+                    let elem_Summary = TBXML.childElementNamed("summary", parentElement: elem_Node)
+                    arr_Summary?.add(TBXML.text(for: elem_Summary!))
+                    let elem_Guid = TBXML.childElementNamed("guid", parentElement: elem_Node)
+                    arr_Guide?.add(TBXML.text(for: elem_Guid))
+                    elem_Node = TBXML.nextSiblingNamed("item", searchFrom: elem_Node)
+                }
+            }
+        } catch {
+            print("Catch Error")
+        }
+        listView.reloadData()
+        MBProgressHUD.hide(for: self.view, animated: true)
+    }
+    
+    func loadURL(_ strURL: String)
+    {
+        _ = TBXML(url: URL(string: strURL)!, success: { (tbxmlDocument) in
+            if (tbxmlDocument?.rootXMLElement != nil) {
+                self.traverseElement((tbxmlDocument?.rootXMLElement)!)
+            } }, failure: { (tbxmlDocument, error) in
+                DispatchQueue.main.async {
+                    MBProgressHUD.hide(for: self.view, animated: false)
+                }
+                print("XML Error \(error?.localizedDescription)")
+        })
+    }
+    //    //UnsafeMutablePointer<TBXMLElement>
+    //
+    func traverseElement(_ element: UnsafeMutablePointer<TBXMLElement>) {
+        TBXML.iterateElements(forQuery: "item", from: element, with: {(_ anElement) in
+            let elem = anElement?.pointee.firstChild
+            repeat {
+                let name = NSString(utf8String: (elem?.pointee.name)!)
+                if name == "pubDate" {
+                    let dateFormatter = DateFormatter()
+                    DateFormatter.defaultFormatterBehavior = .default
+                    dateFormatter.dateFormat = "yyyy-MM-dd"
+                    let dateFromString = dateFormatter.date(from: String(cString: (elem?.pointee.text)!, encoding: .utf8)!)
+                    dateFormatter.dateFormat = "MMM dd, yyyy"
+                    self.arr_PubDate?.add(dateFormatter.string(from: dateFromString!))
+                    if name == "summary" {
+                        self.arr_Summary?.add(String(cString: (elem?.pointee.text)!, encoding: .utf8))
+                    }
+                    if name == "guid" {
+                        self.arr_Guide?.add(String(cString: (elem?.pointee.text)!, encoding: .utf8))
+                    }
+                    if name == "content" {
+                        self.arr_Guide?.add(String(cString: (elem?.pointee.text)!, encoding: .utf8))
+                    }
+                }
+            } while (elem != elem?.pointee.nextSibling)
+        })
+        listView.reloadData()
+        MBProgressHUD.hide(for: self.view, animated: true)
+    }
+    
+    func serviceComplete(_ cloudConnection: WXCloudConnection) {
+        let json = cloudConnection.dataAsUTF8String() as NSString
+        items = json.jsonValue() as! NSMutableArray?
+        if items?.count == 0 {
+            let controller = UIAlertController(title: "Data Retrieval Error", message: "There was a problem retrieving the data.  Please try again later.", preferredStyle: .alert)
+            let ok = UIAlertAction(title: "OK", style: .default, handler: nil)
+            controller.addAction(ok)
+            self.present(controller, animated: true, completion: nil)
+        } else {
+            listView.reloadData()
+        }
+    }
+    
+    //MARK: - TableView
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return (arr_Summary?.count)!
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        var cell = tableView.dequeueReusableCell(withIdentifier: "Cell")
+        if cell == nil {
+            cell = UITableViewCell(style: .subtitle, reuseIdentifier: "Cell")
+        }
+        cell?.textLabel?.text = arr_PubDate?[indexPath.row] as? String
+        cell?.textLabel?.font = UIFont(name: "TradeGothic-Bold", size: 14.0)
+        cell?.detailTextLabel?.text = arr_Summary?[indexPath.row] as? String
+        cell?.detailTextLabel?.font = UIFont(name: "TradeGothic", size: 14.0)
+        cell?.detailTextLabel?.sizeToFit()
+        cell?.accessoryType = .disclosureIndicator
+        return cell!
+    }
+    
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return 80.0
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let item = items?[indexPath.row] as! NSDictionary
+        let detailVC = self.storyboard?.instantiateViewController(withIdentifier: "GDIndustryNewsDetailVC") as! GDIndustryNewsDetailVC
+        detailVC.item = item
+        detailVC.str_title = arr_PubDate?[indexPath.row] as! NSString
+        self.navigationController?.pushViewController(detailVC, animated: true)
+    }
+}

@@ -1,0 +1,175 @@
+//
+//  GDCoinCatalogVC.swift
+//  GoldLineSwift
+//
+//  Created by Gaurav Singh Rawat on 30/05/17.
+//  Copyright © 2016 MobileProgramming. All rights reserved.
+//
+
+import UIKit
+
+class GDCoinCatalogVC: UIViewController, UITableViewDelegate, UITableViewDataSource{
+    
+    var coinNumber: Int!
+    var str_coinName: String!
+    var arrCoinCatalog: NSMutableArray?
+    @IBOutlet weak var tblView: UITableView!
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        MBProgressHUD.showAdded(to: self.view, animated: true)
+        arrCoinCatalog = NSMutableArray()
+        let delegate = UIApplication.shared.delegate as! AppDelegate
+        delegate.window?.bringSubview(toFront: delegate.btn_PlayOrPause)
+        self.navigationController?.isNavigationBarHidden = true
+        let group = DispatchGroup()
+        switch (coinNumber) {
+        case 0:
+            DispatchQueue.global().async(group: group, qos: .default, flags: .detached, execute: {
+                self.loadUrl("https://www.goldline.com/iphone/coin-exclusive")
+            })
+            break;
+        case 1:
+            DispatchQueue.global().async(group: group, qos: .default, flags: .detached, execute: {
+                self.loadUrl("https://www.goldline.com/iphone/coin-gold")
+            })
+            break;
+        case 2:
+            DispatchQueue.global().async(group: group, qos: .default, flags: .detached, execute: {
+                self.loadUrl("https://www.goldline.com/iphone/coin-silver")
+            })
+            break;
+        case 3:
+            DispatchQueue.global().async(group: group, qos: .default, flags: .detached, execute: {
+                self.loadUrl("https://www.goldline.com/iphone/coin-platinum")
+            })
+            break;
+        case 4:
+            DispatchQueue.global().async(group: group, qos: .default, flags: .detached, execute: {
+                self.loadUrl("https://www.goldline.com/iphone/coin-palladium")
+            })
+            break;
+        case 5:
+            DispatchQueue.global().async(group: group, qos: .default, flags: .detached, execute: {
+                self.loadUrl("https://www.goldline.com/iphone/coin-ira")
+            })
+            break;
+        default:
+            break;
+        }
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(true)
+        let del:AppDelegate = UIApplication.shared.delegate! as! AppDelegate
+        del.window!.bringSubview(toFront: del.btn_PlayOrPause!)
+        self.navigationController?.setNavigationBarHidden(true, animated: false)
+    }
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        // Dispose of any resources that can be recreated.
+    }
+    
+    //MARK: - UITableView
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return (arrCoinCatalog?.count)!
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "coincatalog") as! GDCoinCatalogTblCell
+        let coinitem = arrCoinCatalog?[indexPath.row] as! GDCoinCatalogItem
+        let activity = UIActivityIndicatorView(frame: CGRect(x: 0, y: 0, width: 30, height: 30))
+        activity.activityIndicatorViewStyle = .gray
+        cell.imgCell.addSubview(activity)
+        cell.imgCell.image = nil
+        AsyncImageLoader.shared().cancelLoadingImages(forTarget: cell.imgCell)
+        let range = coinitem.strImgURL?.range(of: "|")
+        if range?.lowerBound == range?.upperBound {
+            let arr = coinitem.strImgURL?.components(separatedBy: "|")
+            cell.imgCell?.imageURL = URL(string: ((arr?[0])! as String))!
+        } else {
+            cell.imgCell.imageURL = URL(string: coinitem.strImgURL!)!
+        }
+        let attrStri: NSMutableAttributedString = NSMutableAttributedString(string: coinitem.strCoinTitle!)
+        let style = NSMutableParagraphStyle()
+        style.lineSpacing = 4
+        attrStri.addAttribute(NSParagraphStyleAttributeName, value: style, range: NSMakeRange(0, attrStri.length))
+        cell.lblCell.attributedText = attrStri
+        let string = coinitem.strCoinCategory
+        let iraRange = string?.range(of: "IRA Eligible")
+        if iraRange?.lowerBound == iraRange?.upperBound {
+            cell.lblIRA.text = ""
+        } else {
+            cell.lblIRA.text = "IRA Eligible"
+        }
+        return cell
+    }
+    
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return 86.0
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let cell = tableView.cellForRow(at: indexPath) as! GDCoinCatalogTblCell
+        let coinDetailVC = self.storyboard?.instantiateViewController(withIdentifier: "GDCoinCatalogDetailVC") as! GDCoinCatalogDetailVC
+        coinDetailVC.item = arrCoinCatalog?[indexPath.row] as? GDCoinCatalogItem
+        coinDetailVC.str_coinSelected = cell.lblCell.text
+        coinDetailVC.str_notify = "No"
+        self.navigationController?.pushViewController(coinDetailVC, animated: true)
+    }
+    
+    //MARK: - Local Methods
+    func loadUrl(_ strURL: String) {
+        
+        _ = TBXML(url: URL(string: strURL)!, success: { (tbxmlDocument) in
+            if (tbxmlDocument?.rootXMLElement != nil) {
+                self.traverseElement((tbxmlDocument?.rootXMLElement)!)
+                self.perform(#selector(self.reloadTable), on: .main, with: nil, waitUntilDone: false)
+            } }, failure: { (tbxmlDocument, error) in
+                DispatchQueue.main.async {
+                    MBProgressHUD.hide(for: self.view, animated: false)
+                }
+                print("XML Error \(error?.localizedDescription)")
+        })
+        
+    }
+    
+    func traverseElement(_ element: UnsafeMutablePointer<TBXMLElement>) {
+        TBXML.iterateElements(forQuery: "node", from: element) { (anElement) in
+            
+            var elem = anElement?.pointee.firstChild
+            repeat {
+                let item = GDCoinCatalogItem()
+                let name = String(cString: (elem?.pointee.name)!, encoding: .utf8)
+                
+                if name == "Title" {
+                    item.strCoinTitle = String(cString: (elem?.pointee.text)!, encoding: .utf8)?.replacingOccurrences(of: "&amp;", with: "&")
+                }
+                
+                if name == "Nid" {
+                    item.strNID = String(cString: (elem?.pointee.text)!, encoding: .utf8)
+                }
+                
+                if name == "Coin-image" {
+                    item.strImgURL = String(cString: (elem?.pointee.text)!, encoding: .utf8)
+                }
+                
+                if name == "Coin-Category" {
+                    item.strCoinCategory = String(cString: (elem?.pointee.text)!, encoding: .utf8)
+                }
+                self.arrCoinCatalog?.add(item)
+                elem = elem?.pointee.nextSibling
+            } while(elem != nil)
+        }
+        reloadTable()
+    }
+    
+    func reloadTable() {
+        MBProgressHUD.hide(for: self.view, animated: false)
+        tblView.reloadData()
+    }
+    
+}
+

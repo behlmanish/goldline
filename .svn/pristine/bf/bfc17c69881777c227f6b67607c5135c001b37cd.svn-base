@@ -1,0 +1,337 @@
+//
+//  GDSetNotificationViewController.swift
+//  GoldLineSwift
+//
+//  Created by Gaurav Singh Rawat on 05/06/17.
+//  Copyright © 2017 MobileProgramming. All rights reserved.
+//
+
+import UIKit
+
+class GDSetNotificationViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextFieldDelegate {
+    
+    @IBOutlet weak var headingLabel: UILabel!
+    @IBOutlet weak var tbl_list: UITableView!
+    @IBOutlet weak var txt_alertPercent: UITextField!
+    
+    var str_alertName:String = ""
+    var str_alertPercent:String = ""
+    var str_timePeriod: String = ""
+    var str_sound: String = ""
+    var str_activeStatus: String?
+    var str_tracked: String?
+    var mview: UIView?
+    var appDelegate: AppDelegate?
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        self.navigationController?.isNavigationBarHidden = true
+        mview = UIView(frame: CGRect(x: 0, y: 0, width: self.view.frame.width, height: 40))
+        mview?.backgroundColor = UIColor.gray
+        let btn_done = UIButton(type: .custom)
+        btn_done.frame = CGRect(x: self.view.frame.width - 70, y: 2, width: 50, height: 35)
+        btn_done.setTitle("Done", for: .normal)
+        btn_done.addTarget(self, action: #selector(self.confirmvalue(_:)), for:.touchUpInside)
+        mview?.addSubview(btn_done)
+        tbl_list.tableFooterView = UIView(frame: CGRect.zero)
+    }
+    
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(true)
+        txt_alertPercent.resignFirstResponder()
+    }
+    
+    @IBAction func confirmvalue(_ sender: UIButton) {
+        txt_alertPercent.resignFirstResponder()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(true)
+        str_timePeriod = UserDefaults.standard.object(forKey: "selectedValue") as! String
+        str_sound = UserDefaults.standard.object(forKey: "SelectedSound") as! String
+        headingLabel.font = UIFont(name: "OpenSans-SemiBold", size: 18)
+        self.navigationController?.isNavigationBarHidden = true
+        if (UserDefaults.standard.object(forKey: "status") as! String) == "1" {
+            self.str_activeStatus = "Active"
+        } else {
+            self.str_activeStatus = "Deactive"
+        }
+        //        self.screenName = self.str_tracked;
+        appDelegate = UIApplication.shared.delegate as? AppDelegate
+        //        appDelegate.className = str_tracked
+        tbl_list.reloadData()
+    }
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+    }
+    
+    //MARK:- UITableView
+    func numberOfSections(in tableView: UITableView) -> Int {
+        return 4
+    }
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        switch section {
+        case 0:
+            return 1
+        case 1:
+            return 1
+        case 2:
+            return 1
+        case 3:
+            return 1
+        default:
+            return 0
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        switch indexPath.section {
+        case 0:
+            return 40
+        case 1:
+            return 60
+        case 2:
+            return 60
+        case 3:
+            return 40
+        default:
+            return 0
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        switch(section)
+        {
+        case 1:
+            return 60
+        case 2:
+            return 40
+        case 3:
+            return 40
+        default:
+            return 20
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        let sectionHeaderView = UIView(frame: CGRect(x: 0, y: 0, width: tableView.frame.width, height: self.tableView(tableView, heightForHeaderInSection: section)))
+        sectionHeaderView.backgroundColor = UIColor(red: 238/255.0, green: 239/255.0, blue: 244/255.0, alpha: 1)
+        let label = UILabel(frame: CGRect(x: 15, y: 8, width: 290, height: sectionHeaderView.frame.height - 16))
+        
+        switch section {
+        case 1:
+            label.text = "Day Gain or Loss alerts occur when the percentage change in the current trading day exceeds the percentage value entered."
+            break
+        case 2:
+            label.text = "Alerts can be reset after they occur so the same alert can re-occur in the future."
+            break
+        case 3:
+            label.text = "A notification sound that is played when the alert occurs."
+            break
+        default:
+            break
+        }
+        
+        label.numberOfLines = 0
+        label.textColor = UIColor.gray
+        label.font = UIFont.systemFont(ofSize: 14)
+        label.sizeToFit()
+        sectionHeaderView.addSubview(label)
+        return sectionHeaderView;
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        var cell = tableView.dequeueReusableCell(withIdentifier: "SimpleTableItem")
+        
+        if cell == nil {
+            cell = UITableViewCell(style: .default, reuseIdentifier: "SimpleTableItem")
+        }
+        
+        for i in (cell?.contentView.subviews)! {
+            i.removeFromSuperview()
+        }
+        
+        switch indexPath.section {
+        case 0:
+            let label = UILabel(frame: CGRect(x: 15, y: 12, width: 320, height: 25))
+            label.numberOfLines = 0
+            label.text = self.str_alertName.replacingOccurrences(of: "_", with: " ")
+            label.font = UIFont.systemFont(ofSize: 14)
+            label.sizeToFit()
+            cell?.contentView.addSubview(label)
+            txt_alertPercent = UITextField(frame: CGRect(x: self.view.frame.width - 115, y: 9, width: 70, height: 25))
+            txt_alertPercent.delegate = self
+            txt_alertPercent.inputAccessoryView = mview
+            txt_alertPercent.keyboardType = .decimalPad
+            
+            if str_alertName == "price_limit" {
+                txt_alertPercent.text = "\(str_alertPercent) $"
+            } else {
+                txt_alertPercent.text = "\(str_alertPercent) %"
+            }
+            
+            txt_alertPercent.textColor = UIColor.gray
+            txt_alertPercent.font = UIFont.systemFont(ofSize: 14)
+            cell?.contentView.addSubview(txt_alertPercent)
+            txt_alertPercent.textAlignment = .right
+            cell?.accessoryType = .disclosureIndicator
+            break
+        case 1:
+            let label = UILabel(frame: CGRect(x: 15, y: 12, width: 320, height: 25))
+            label.numberOfLines = 0
+            label.text = "Resets"
+            label.font = UIFont.systemFont(ofSize: 14)
+            label.sizeToFit()
+            cell?.contentView.addSubview(label)
+            let labelPercent = UILabel(frame: CGRect(x: self.view.frame.width - 170, y: 8, width: 140, height: 25))
+            labelPercent.text = str_timePeriod
+            labelPercent.textColor = .gray
+            cell?.contentView.addSubview(labelPercent)
+            labelPercent.font = UIFont.systemFont(ofSize: 14)
+            labelPercent.textAlignment = .right
+            cell?.accessoryType = .disclosureIndicator
+            break
+        case 2:
+            let label = UILabel(frame: CGRect(x: 15, y: 12, width: 320, height: 25))
+            label.numberOfLines = 0
+            label.text = "Sound"
+            label.font = UIFont.systemFont(ofSize: 14)
+            label.sizeToFit()
+            cell?.contentView.addSubview(label)
+            let labelPercent = UILabel(frame: CGRect(x: self.view.frame.width - 95, y: 9, width: 60, height: 25))
+            labelPercent.text = str_sound
+            labelPercent.textColor = .gray
+            labelPercent.font = UIFont.systemFont(ofSize: 14)
+            labelPercent.textAlignment = .right
+            cell?.contentView.addSubview(labelPercent)
+            cell?.accessoryType = .disclosureIndicator
+            break
+        case 3:
+            let label = UILabel(frame: CGRect(x: 15, y: 12, width: 320, height: 25))
+            label.numberOfLines = 0
+            label.text = "Alert Status"
+            label.font = UIFont.systemFont(ofSize: 14)
+            label.sizeToFit()
+            cell?.contentView.addSubview(label)
+            let labelPercent = UILabel(frame: CGRect(x: self.view.frame.width - 90, y: 11, width: 60, height: 25))
+            labelPercent.font = UIFont.systemFont(ofSize: 14)
+            labelPercent.text = str_activeStatus
+            if str_activeStatus == "Active" {
+                labelPercent.textColor = UIColor(red: 47/255.0, green: 181/255.0, blue: 91/255.0, alpha: 1)
+            } else {
+                labelPercent.textColor = UIColor(red: 224/255.0, green: 50/255.0, blue: 50/255.0, alpha: 1)
+            }
+            labelPercent.textAlignment = .right
+            cell?.contentView.addSubview(labelPercent)
+            break
+        default:
+            break
+        }
+        
+        cell?.selectionStyle = .none
+        cell?.isOpaque = true
+        return cell!
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let obj_reset = self.storyboard?.instantiateViewController(withIdentifier: "GDResetAlertViewController") as! GDResetAlertViewController
+        //        obj_reset.str_screenTacked = self.str_tracked
+        
+        switch indexPath.section {
+        case 0:
+            self.txt_alertPercent.isUserInteractionEnabled = true
+            self.txt_alertPercent.becomeFirstResponder()
+            break
+        case 1:
+            obj_reset.str_title = "Alert Reset"
+            self.navigationController?.pushViewController(obj_reset, animated: true)
+            break
+        case 2:
+            obj_reset.str_title = "Notification Sound"
+            self.navigationController?.pushViewController(obj_reset, animated: true)
+            break;
+        case 3:
+            let controller = UIAlertController(title: "Alert Status", message: "", preferredStyle: .actionSheet)
+            
+            let activeButton = UIAlertAction(title: "Active", style: .default, handler: { (alertAction) in
+                self.str_activeStatus = "Active"
+                self.callServiceForUpdate(for: "status", value: "1")
+            })
+            
+            let deactiveButton = UIAlertAction(title: "Deactive", style: .default, handler: {
+                (alertAction) in
+                self.str_activeStatus = "Deactive"
+                self.callServiceForUpdate(for: "status", value: "0")
+            })
+            
+            let cancelButton = UIAlertAction(title: "Cancel", style: .cancel)
+            controller.addAction(activeButton)
+            controller.addAction(deactiveButton)
+            controller.addAction(cancelButton)
+            self.present(controller, animated: true)
+            break;
+        default:
+            break
+        }
+    }
+    
+    //MARK: - CallServiceForUpdate
+    func callServiceForUpdate(for str_UpdateFor: String, value str_UpdateValue: String) {
+        MBProgressHUD.showAdded(to: self.view, animated: true)
+        let srt_saveToken = "https://www.goldline.com/iphone/api/services/index.php?action=editNotification";
+        let strupload = "id=\(UserDefaults.standard.object(forKey: "id") as! String)&update_for=\(str_UpdateFor)&update_value=\(str_UpdateValue)"
+        let strpostlength = String(strupload.characters.count)
+        var urlRequest = URLRequest(url: URL(string: srt_saveToken)!)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue(strpostlength, forHTTPHeaderField: "Content-length")
+        urlRequest.httpBody = strupload.data(using: .utf8)
+        NSURLConnection.sendAsynchronousRequest(urlRequest, queue: .main) { (response, data, error) in
+            
+            if error != nil {
+                print("Error: \(error?.localizedDescription)")
+                MBProgressHUD.hide(for: self.view, animated: true)
+                return
+            }
+            do{
+                let res = try JSONSerialization.jsonObject(with: data!, options: .allowFragments)
+                print("Result: \(res)")
+                MBProgressHUD.hide(for: self.view, animated: true)
+                self.tbl_list.reloadData()
+            } catch {
+                print("Catch Error")
+            }
+        }
+    }
+    
+    //MARK: - UITextField
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        textField.resignFirstResponder()
+        return true
+    }
+    
+    func textFieldDidBeginEditing(_ textField: UITextField) {
+        self.txt_alertPercent.text = ""
+    }
+    
+    func textFieldDidEndEditing(_ textField: UITextField) {
+        self.txt_alertPercent.text = self.txt_alertPercent.text?.replacingOccurrences(of: "%%", with: "")
+        
+        if self.txt_alertPercent.text != "" {
+            self.str_alertPercent = self.txt_alertPercent.text!
+            self.txt_alertPercent.resignFirstResponder()
+            self.txt_alertPercent.isUserInteractionEnabled = true
+            self.callServiceForUpdate(for: "notification_value", value: self.txt_alertPercent.text!)
+            self.tbl_list.reloadData()
+        } else {
+            if self.str_alertName == "price_limit" {
+                self.txt_alertPercent.text = "\(self.txt_alertPercent.text!) $"
+            } else {
+                self.txt_alertPercent.text = "\(self.txt_alertPercent.text!) %"
+            }
+            self.txt_alertPercent.resignFirstResponder()
+            self.txt_alertPercent.isUserInteractionEnabled = true
+        }
+    }
+}

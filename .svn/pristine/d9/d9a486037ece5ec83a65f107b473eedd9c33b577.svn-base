@@ -1,0 +1,384 @@
+//
+//  GDNewsAndVideosVC.swift
+//  GoldLineSwift
+//
+//  Created by Aravind.Kumar on 6/16/16.
+//  Copyright © 2016 MobileProgramming. All rights reserved.
+//
+
+import UIKit
+import MediaPlayer
+
+class GDNewsAndVideosVC: UIViewController, UITableViewDelegate, UITableViewDataSource, UIWebViewDelegate {
+    
+    let kYoutubeURL = "https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=PLzk6904EZNH5BAjG2XBKTPgAIeGpgM9O_&key=AIzaSyDGQCpQiadhR2Ny4V2Ev-ima6t99QrEVMA"
+    let kEmbedURl = "https://www.youtube.com/watch?v=%@&index=%d&list=PLzk6904EZNH5BAjG2XBKTPgAIeGpgM9O_"
+    @IBOutlet weak var youtube_WebView: UIWebView!
+    @IBOutlet weak var segment: UISegmentedControl!
+    @IBOutlet weak var tblView: UITableView!
+    @IBOutlet weak var headingLabel: UILabel!
+    var serviceData: NSArray?
+    var apiVersion: NSString = ""
+    var mutableString: NSMutableString = ""
+    var frameView: UIView = UIView()
+    var videoView: UIWebView = UIWebView()
+    var mc: MPMoviePlayerViewController = MPMoviePlayerViewController()
+    var soundManage: AFSoundManager = AFSoundManager()
+    var arr_Titles: NSMutableArray = NSMutableArray()
+    var sub_Description: NSMutableArray = NSMutableArray()
+    var arr_VideoId: NSMutableArray = NSMutableArray()
+    var arr_ThumnailURL: NSMutableArray = NSMutableArray()
+    var html:NSString?
+    var del: AppDelegate?
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        tblView.register(UINib(nibName: "YouTubeCell", bundle: nil) , forCellReuseIdentifier: "youTubeCell")
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        headingLabel.font = UIFont(name: "OpenSans-SemiBold", size: CGFloat(18))
+        let fontCsut = UIFont.systemFont(ofSize: CGFloat(14.0))
+        let dictSelected: [AnyHashable: Any] = [NSForegroundColorAttributeName: UIColor.darkGray, NSFontAttributeName: fontCsut]
+        let dictUnslected: [AnyHashable: Any] = [NSForegroundColorAttributeName: UIColor.darkGray, NSFontAttributeName: fontCsut]
+        segment.setTitleTextAttributes(dictSelected, for: .selected)
+        segment.setTitleTextAttributes(dictUnslected, for: .normal)
+        navigationController?.setNavigationBarHidden(true, animated: false)
+        //del.className = "NewsAndVideos"
+    }
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+    }
+    
+    // MARK: - Notification Methods For Youtube Video
+    func youTubeStarted(_ notification: Notification) {
+        youtube_WebView.isHidden = false
+        del?.btn_PlayOrPause.isHidden = true
+        soundManage.pause()
+    }
+    
+    func youTubeFinished(_ notification: Notification) {
+        youtube_WebView.isHidden = true
+        if del?.isAudioPlaying == false {
+            del?.btn_PlayOrPause.isHidden = true
+        } else {
+            del?.btn_PlayOrPause.isHidden = false
+            soundManage.resume()
+        }
+    }
+    
+    // MARK: - IBAction for call button functionality.
+    @IBAction func callNowFunction(_ sender: UIButton) {
+        let device = UIDevice.current
+        if (device.model == "iPhone") {
+            let stringURL: String = "telprompt://8003185505"
+            UIApplication.shared.openURL(URL(string: stringURL)!)
+        } else {
+            UIAlertView(title: "", message: "Device not supporting calling functionality", delegate: nil, cancelButtonTitle: "", otherButtonTitles: "Ok").show()
+        }
+    }
+    
+    // MARK: - Table view data source
+    func numberOfSections(in tableView: UITableView) -> Int {
+        return 1
+    }
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        
+        if(segment.selectedSegmentIndex == 1)
+        {
+            tableView.separatorStyle = .singleLine
+            return arr_Titles.count;
+        }
+        tableView.separatorStyle = .none
+        return 2;
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        tableView.backgroundColor = .clear;
+        
+        if segment.selectedSegmentIndex == 1 {
+            let youtubeCellIdentifier = "youTubeCell"
+            let cell = tableView.dequeueReusableCell(withIdentifier: youtubeCellIdentifier) as? YouTubeCell
+            cell?.img_Thumbnail.loadImage(arr_ThumnailURL[indexPath.row] as? String, placeholderImage: nil)
+            cell?.lbl_Title.text = arr_Titles[indexPath.row] as? String
+            cell?.lbl_Description.text = sub_Description[indexPath.row] as? String
+            return cell!
+        } else {
+            let cellIdentifier = "NewsVideoTblViewCell";
+            let cell = tableView.dequeueReusableCell(withIdentifier: cellIdentifier) as! GDNewsVideosTBlCell
+            
+            switch (indexPath.row) {
+            case 0:
+                cell.lblName.text = "Recent Industry News";
+                cell.lblDescription.text = "Current events and trends that may affect your investments";
+                cell.imgView.image = #imageLiteral(resourceName: "news1")
+                break;
+            case 1:
+                cell.lblName.text = "Digital Brochures";
+                cell.lblDescription.text = "Check the updates in Digital Brochure from Goldline LLC.";
+                cell.imgView.image = #imageLiteral(resourceName: "brochures.png")
+                break;
+            default:
+                break;
+            }
+            
+            cell.lblName.font = UIFont(name: "TradeGothic", size: 14.0)
+            cell.lblDescription.font = UIFont(name: "TradeGothic", size: 10.0)
+            cell.selectionStyle = .none
+            cell.accessoryType = .none
+            return cell
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        
+        if segment.selectedSegmentIndex == 1 {
+            return 80.0
+        }
+        return 80.0
+//        return tableView.frame.height / 5.0
+    }
+    
+    func tableView(_ tableView: UITableView, willDeselectRowAt indexPath: IndexPath) -> IndexPath? {
+        return tableView.indexPathForSelectedRow
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        
+        if segment.selectedSegmentIndex == 1 {
+            
+            del?.btn_PlayOrPause.isHidden = true
+            self.soundManage.pause()
+            youtube_WebView.allowsInlineMediaPlayback = true
+            youtube_WebView.mediaPlaybackRequiresUserAction = false
+            youtube_WebView.mediaPlaybackAllowsAirPlay = true
+            youtube_WebView.delegate = self
+            youtube_WebView.scrollView.bounces = false
+            let linkObj: String = "https://www.youtube.com/v/\(arr_VideoId[indexPath.row] as! String)"
+            var embedHtml = "<html><head><style type='text/css'> body { background-color: transparent;color: white;}\\</style>\\</head><body style=\"margin:0\">\\<embed webkit-playsinline id=\"yt\" src=\"\(linkObj)\" type=\"application/x-shockwave-flash\" \\width=\"320\" height=\"460\"></embed>\\</body></html>"
+            let frame = UIScreen.main.bounds
+            
+            if frame.size.height <= 480 {
+                embedHtml = "<html><head><style type='text/css'> body { background-color: transparent;color: white;}\\</style>\\</head><body style=\"margin:0\">\\<embed webkit-playsinline id=\"yt\" src=\"\(linkObj)\" type=\"application/x-shockwave-flash\" \\width=\"320\" height=\"460\"></embed>\\</body></html>"
+            }
+            
+            youtube_WebView.loadHTMLString(embedHtml, baseURL: nil)
+            youtube_WebView.isHidden = false
+            
+        } else {
+            var controller = UIViewController()
+            switch (indexPath.row) {
+            case 0:
+                controller = self.storyboard!.instantiateViewController(withIdentifier: "GDIndustryNewsVC")
+                break
+            case 1:
+                controller = self.storyboard!.instantiateViewController(withIdentifier: "BrochureVC")
+                break
+            default:
+                break
+            }
+            self.navigationController?.pushViewController(controller, animated: true)
+        }
+    }
+    
+    func webViewDidStartLoad(_ webView: UIWebView) {
+        _ = MBProgressHUD .showAdded(to: self.view, animated: true)
+    }
+    
+    func webView(_ webView: UIWebView, didFailLoadWithError error: Error) {
+        _ = MBProgressHUD.hide(for: self.view, animated: true)
+    }
+    
+    func webViewDidFinishLoad(_ webView: UIWebView) {
+        _ = MBProgressHUD .hide(for: self.view, animated: true)
+    }
+    
+    @IBAction func segemntControlSelected(_ sender: UISegmentedControl) {
+        switch sender.selectedSegmentIndex {
+        case 0:
+            self.frameView.removeFromSuperview()
+            tblView.reloadData()
+            break
+        case 1:
+            //            screenName = "Videos";
+            arr_Titles = NSMutableArray()
+            sub_Description = NSMutableArray()
+            arr_VideoId = NSMutableArray()
+            arr_ThumnailURL = NSMutableArray()
+            MBProgressHUD.showAdded(to: self.view, animated: true)
+            let url_Youtube = URL(string: kYoutubeURL)
+            DispatchQueue.main.async {
+                do{
+                    let youtubeData = try Data(contentsOf: url_Youtube!)
+                    let jsonYoutube = try JSONSerialization.jsonObject(with: youtubeData, options: .allowFragments) as! NSDictionary
+                    let arr_Items = NSArray(array: jsonYoutube["items"] as! NSArray)
+                    for dict_Item in arr_Items
+                    {
+                        let arr_ItemKeys = NSArray(array: (dict_Item as! NSDictionary).allKeys)
+                        for str_Key  in arr_ItemKeys {
+                            if ((str_Key as! String) == "snippet") {
+                                let dict_Snippet = NSDictionary(dictionary: ((dict_Item as! NSDictionary)[str_Key as! String]) as! NSDictionary)
+                                let str_Title = dict_Snippet["title"] as! String
+                                self.arr_Titles.add(str_Title)
+                                let str_description = dict_Snippet["description"] as! String
+                                self.sub_Description.add(str_description)
+                                let dict_Thumbnail = NSDictionary(dictionary: dict_Snippet["thumbnails"] as! NSDictionary)
+                                let dict_Default = NSDictionary(dictionary: dict_Thumbnail["default"] as! NSDictionary)
+                                let str_ThumURl = dict_Default["url"] as! String
+                                self.arr_ThumnailURL.add(str_ThumURl)
+                            } else if ((str_Key as! String) == "contentDetails") {
+                                let dict_Video = NSDictionary(dictionary: ((dict_Item as! NSDictionary)[str_Key as! String]) as! NSDictionary)
+                                let str_VideoId = dict_Video["videoId"]
+                                self.arr_VideoId.add(str_VideoId)
+                            }
+                        }
+                    }
+                    self.tblView.reloadData()
+                    MBProgressHUD.hide(for: self.view, animated: true)
+                }
+                catch{
+                    print("Error")
+                }
+            }
+            break
+        default:
+            break
+        }
+    }
+    
+    func getYouTubeData() {
+        WXCloudConnection.getLink("https://www.googleapis.com/youtube/v3/playlistItems?playlistId=PLzk6904EZNH5BAjG2XBKTPgAIeGpgM9O_&key=AIzaSyDGQCpQiadhR2Ny4V2Ev-ima6t99QrEVMA&part=snippet,contentDetails", target: self, selector: #selector(self.serviceComplete), userData: nil)
+    }
+    
+    func serviceComplete(c: WXCloudConnection) -> Void {
+        let json = c.dataAsUTF8String()
+        let topLevelDict: [AnyHashable: Any] = json!.jsonValue() as! [AnyHashable : Any]
+        self.apiVersion = topLevelDict["apiVersion"] as! NSString
+        let dataDict: [AnyHashable: Any] = topLevelDict["data"] as! [AnyHashable: Any]
+        self.serviceData = dataDict["items"] as? NSArray
+        if self.serviceData != nil {
+            self.createEmbeddedHTML()
+        } else {
+            _ = MBProgressHUD.hide(for: self.view, animated: true)
+        }
+    }
+    
+    func createEmbeddedHTML() {
+        mutableString = NSMutableString()
+        mutableString.append("<html>")
+        mutableString.append("<head>")
+        mutableString.append(generateHTMLHeader())
+        mutableString.append("<title></title></head><body><table id='videos'>")
+        for i in 0..<self.serviceData!.count {
+            let subDict = self.serviceData?[i] as! NSDictionary
+            let title = subDict["title"]
+            let duration = subDict["duration"] as! String
+            let viewCount = subDict["viewCount"]
+            let contentDict = subDict["content"] as! NSDictionary
+            let videoURL = contentDict["5"]
+            var finalDurationString = ""
+            let durationInSeconds: Int = Int.init(duration)!
+            let durationInMinutes: Int = (durationInSeconds / 60)
+            let durationInRemainder: Int = durationInSeconds % 60
+            if durationInRemainder < 10 {
+                finalDurationString = "\(durationInMinutes):\(durationInRemainder)"
+            } else {
+                finalDurationString = "\(durationInMinutes):\(durationInRemainder)"
+            }
+            mutableString.append("<tr class='alt'><td width='90px'><embed id='yt'")
+            mutableString.append("src='\(videoURL)' type='application/x-shockwave-flash' width='85.3f' height='64.0f' /></td><td>\(title)</td>")
+            mutableString.append("<div class='nowiki' val=''><font color='gray'>\(viewCount)</font></div>\(finalDurationString)</td></tr>")
+        }
+        mutableString.append("</table></body></html>")
+        MBProgressHUD.hide(for: self.view, animated: true)
+        self.videoView.loadHTMLString("\(mutableString)https://www.youtube.com/playlist?list=PLzk6904EZNH5BAjG2XBKTPgAIeGpgM9O_", baseURL: nil)
+        //        self.videoView.loadHTMLString(<#T##string: String##String#>, baseURL: <#T##URL?#>)
+        //        embedYouTube(urlString: "https://www.youtube.com/playlist?list=PLzk6904EZNH5BAjG2XBKTPgAIeGpgM9O_\(mutableString)", embedHTML: <#T##NSString#>, frame: <#T##CGRect#>)
+    }
+    
+    func embedYouTube(urlString: NSString, embedHTML: NSString, frame: CGRect) {
+        let htmlFrame = "\(embedHTML)"
+    }
+    
+    /*
+     
+     - (void)embedYouTube:(NSString *)urlString embedHTML:(NSString*)embedHTML frame:(CGRect)frame
+     {
+     NSString *htmlFrame = [NSString stringWithFormat:embedHTML, urlString];
+     [self.videoView loadHTMLString:htmlFrame baseURL:nil];
+     }
+     - (void)embedYouTubePREV:(NSString *)urlString embedHTML:(NSString*)embedHTML frame:(CGRect)frame
+     {
+     NSString *htmlYTube = [NSString stringWithFormat:embedHTML, urlString, frame.size.width, frame.size.height];
+     UIWebView *videoView = [[UIWebView alloc] initWithFrame:frame];
+     [videoView loadHTMLString:htmlYTube baseURL:nil];
+     [self.view addSubview:videoView]; }
+     
+     - (void)embedYouTubeORIG:(NSString *)urlString embedHTML:(NSString*)embedHTML frame:(CGRect)frame
+     {
+     NSString *htmlView = [NSString stringWithFormat:embedHTML, urlString, frame.size.width, frame.size.height];
+     UIWebView *videoView = [[UIWebView alloc] initWithFrame:frame];
+     [videoView loadHTMLString:htmlView baseURL:nil];
+     [self.view addSubview:videoView];
+     }
+     
+     - (void)embedYouTubeORIG:(NSString *)urlString frame:(CGRect)frame
+     {
+     NSString *embedHTML = @"\
+     <html>\
+     <head>\
+     <meta name=\"generator\" content=\
+     \"HTML Tidy for Linux/x86 (vers 11 February 2007), see www.w3.org\" />\
+     <style type=\"text/css\">\
+     /*<![CDATA[*/\
+     body {background-color:rgb(9,65,112); color:#ffffff; margin: 0px 0px 0px 0px;}     #videos     {     font-family:\"HelveticaNeue\", sans-serif;     width:120px;     border-collapse:collapse;     }     #videos td, #videos th      {     font-size:1em;     border-bottom:1px solid #ffffff;     border-top:1px solid #ffffff;     padding:4px 4px 4px 4px;     }     #videos tr td      {     background-color:#094170;     }     \
+     /*]]>*/\
+     </style>\
+     <title></title>\
+     </head>\
+     <body>\
+     <table id=\"videos\">\
+     <tr class=\"alt\">\
+     <td width=\"90px\"><embed id=\"yt\" src=\"http://www.youtube.com/watch?v=AqkZ4Etyt7E\"\
+     type=\"application/x-shockwave-flash\" width=\"85.3f\" height=\"64.0f\" /></td>\
+     <td>Goldline: It is too late to buy Gold?<br>20 views<br>01:02</td>\
+     </tr>\
+     <tr class=\"alt\">\
+     <td width=\"90px\"><embed id=\"yt\" src=\"http://www.youtube.com/watch?v=-I6ld9qpOo4\"\
+     type=\"application/x-shockwave-flash\" width=\"85.3f\" height=\"64.0f\" /></td>\
+     <td>Goldline: Should I consider owning...<br>2340 views<br>12:00</td>\
+     </tr>\
+     <tr class=\"alt\">\
+     <td width=\"90px\"><embed id=\"yt\" src=\"http://www.youtube.com/watch?v=tT-qJOBz3P0\"\
+     type=\"application/x-shockwave-flash\" width=\"85.3f\" height=\"64.0f\" /></td>\
+     <td>The Street covers Goldline LLC<br>11,340 views<br>6:19</td>\
+     </tr>\
+     </table>\
+     </body>\
+     </html>";
+     NSString *htmlVideo = [NSString stringWithFormat:embedHTML, urlString, frame.size.width, frame.size.height];
+     UIWebView *videoView = [[UIWebView alloc] initWithFrame:frame];
+     [videoView loadHTMLString:htmlVideo baseURL:nil];
+     [self.view addSubview:videoView];
+     }*/
+
+    //
+    //    func embedYouTube(urlString: NSString,embedHTML: NSString, frame: CGRect) {
+    //        let htmlFrame = "\(embedHTML) \()"
+    func generateHTMLHeader() -> String {
+        return "<head>" +
+            "     <meta name=\"generator\" content=" +
+            "     \"HTML Tidy for Linux/x86 (vers 11 February 2007), see www.w3.org\" />" +
+            "     <style type=\"text/css\">" +
+            "     /*<![CDATA[*/" +
+            "     body {background-color:rgb(9,65,112); color:#000000; margin: 0px 0px 0px 0px;}     #videos     {     font-family:\"HelveticaNeue\", sans-serif;     width:320px;     border-collapse:collapse;     }     #videos td, #videos th      {     font-size:1em;     border-bottom:1px solid #000000;     border-top:1px solid #000000;     padding:4px 4px 4px 4px;     }     #videos tr td      {     background-color:#ffffff;     }     " +
+            "     /*]]>*/" +
+            "     </style>" +
+            "     <title></title>" +
+        "     </head>"
+    }
+}
+
+
+

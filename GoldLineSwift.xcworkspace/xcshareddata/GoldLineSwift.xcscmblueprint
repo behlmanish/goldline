@@ -1,0 +1,25 @@
+{
+  "DVTSourceControlWorkspaceBlueprintPrimaryRemoteRepositoryKey" : "dd8df06b-2aa8-9e4d-854a-0f267b86f90d++9416",
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyRepositoryLocationsKey" : {
+    "dd8df06b-2aa8-9e4d-854a-0f267b86f90d++9416" : {
+
+    }
+  },
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyStatesKey" : {
+    "dd8df06b-2aa8-9e4d-854a-0f267b86f90d++9416" : 9223372036854775807
+  },
+  "DVTSourceControlWorkspaceBlueprintIdentifierKey" : "7416E11F-B0A8-493B-8F95-39ECEC65A086",
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyPathsKey" : {
+    "dd8df06b-2aa8-9e4d-854a-0f267b86f90d++9416" : "GoldlineLatestSwift\/"
+  },
+  "DVTSourceControlWorkspaceBlueprintNameKey" : "GoldLineSwift",
+  "DVTSourceControlWorkspaceBlueprintVersion" : 204,
+  "DVTSourceControlWorkspaceBlueprintRelativePathToProjectKey" : "GoldLineSwift.xcworkspace",
+  "DVTSourceControlWorkspaceBlueprintRemoteRepositoriesKey" : [
+    {
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryURLKey" : "https:\/\/repo.mobileprogramming.com\/svn\/iGoldline",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositorySystemKey" : "com.apple.dt.Xcode.sourcecontrol.Subversion",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryIdentifierKey" : "dd8df06b-2aa8-9e4d-854a-0f267b86f90d++9416"
+    }
+  ]
+}

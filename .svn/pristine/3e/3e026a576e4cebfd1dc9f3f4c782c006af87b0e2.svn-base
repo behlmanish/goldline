@@ -1,0 +1,6 @@
+framework module Pods_GoldLineSwift {
+  umbrella header "Pods-GoldLineSwift-umbrella.h"
+
+  export *
+  module * { export * }
+}
